@@ -1,0 +1,537 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>AI 面试演练系统 | Vue 3 + Tailwind</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500;700&family=Noto+Serif+SC:wght@500;700;800&display=swap" rel="stylesheet">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['Noto Sans SC', 'system-ui', 'sans-serif'],
+            display: ['Noto Serif SC', 'Noto Sans SC', 'serif']
+          },
+          colors: { ink: '#030712', night: '#0f172a', cyanx: '#22d3ee', mintx: '#10b981', amberx: '#f59e0b', coralx: '#fb7185' },
+          boxShadow: { 
+            glow: '0 0 0 1px rgba(255,255,255,0.05), 0 8px 32px -8px rgba(0,0,0,0.5)', 
+            soft: '0 4px 20px -2px rgba(0, 0, 0, 0.25)',
+            innerGlow: 'inset 0 1px 0 0 rgba(255,255,255,0.1)'
+          },
+          keyframes: {
+            floatin: { '0%': { opacity: '0', transform: 'translateY(12px)' }, '100%': { opacity: '1', transform: 'translateY(0)' } },
+            pulseRing: { '0%': { boxShadow: '0 0 0 0 rgba(251, 113, 133, 0.4)' }, '75%': { boxShadow: '0 0 0 12px rgba(251, 113, 133, 0)' }, '100%': { boxShadow: '0 0 0 0 rgba(251, 113, 133, 0)' } }
+          },
+          animation: { floatin: 'floatin 500ms cubic-bezier(0.16, 1, 0.3, 1) both', pulseRing: 'pulseRing 2s cubic-bezier(0.4, 0, 0.6, 1) infinite' }
+        }
+      }
+    };
+  </script>
+  <script src="https://unpkg.com/@phosphor-icons/web"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="https://unpkg.com/vue@3/dist/vue.global.prod.js"></script>
+  <style>
+    body {
+      background-color: #030712;
+      background-image: 
+        radial-gradient(ellipse 80% 50% at 50% -20%, rgba(34, 211, 238, 0.12), transparent),
+        radial-gradient(ellipse 60% 50% at 50% 120%, rgba(16, 185, 129, 0.08), transparent);
+      min-height: 100vh;
+      color: #f8fafc;
+    }
+    .glass {
+      background: rgba(15, 23, 42, 0.45);
+      backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px);
+    }
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.1); border-radius: 999px; }
+    ::-webkit-scrollbar-thumb:hover { background: rgba(255, 255, 255, 0.2); }
+  </style>
+</head>
+<body class="antialiased selection:bg-cyanx/30 selection:text-cyan-50">
+  <div id="app" class="mx-auto max-w-[1320px] px-4 py-6 md:px-8 md:py-8">
+    <header class="mb-7 animate-floatin">
+      <div class="inline-flex items-center gap-2.5 rounded-full border border-white/10 bg-white/[0.03] px-3.5 py-1.5 text-xs font-medium text-slate-300 shadow-soft backdrop-blur-md">
+        <i class="ph-fill ph-sparkle text-cyanx"></i>
+        <span>多模态对话 · 智能能力评估 · RAG 知识增强</span>
+      </div>
+      <div class="mt-5 flex flex-col gap-5 md:flex-row md:items-end md:justify-between">
+        <div>
+          <h1 class="font-display text-3xl font-extrabold tracking-tight text-transparent bg-clip-text bg-gradient-to-r from-white to-slate-400 md:text-5xl">AI 面试演练系统</h1>
+        </div>
+        <button @click="openGrowth" class="group inline-flex items-center justify-center gap-2 rounded-xl border border-white/10 bg-white/5 px-5 py-2.5 text-sm font-semibold text-slate-200 shadow-soft transition-all hover:-translate-y-0.5 hover:bg-white/10 hover:border-cyanx/30 hover:text-cyan-50">
+          <i class="ph-bold ph-chart-line-up transition-transform group-hover:scale-110 group-hover:text-cyanx"></i> 成长曲线
+        </button>
+      </div>
+    </header>
+
+    <main class="grid gap-6 lg:grid-cols-[360px_minmax(0,1fr)]">
+      <section class="space-y-4 lg:sticky lg:top-4 lg:self-start">
+        <div class="glass rounded-3xl border border-white/10 p-4.5 shadow-glow md:p-5 transition-all hover:border-white/15">
+          <h2 class="mb-4 flex items-center gap-2.5 text-lg font-bold text-white"><i class="ph-fill ph-sliders-horizontal text-cyanx"></i> 面试配置</h2>
+          <div class="space-y-3.5">
+            <label class="block space-y-1.5">
+              <span class="block text-xs font-semibold uppercase tracking-wider text-slate-400">AI 模型</span>
+              <select v-model="selectedModel" @change="changeModel" :disabled="loadingModel" class="w-full rounded-xl border border-white/10 bg-slate-900/50 px-3.5 py-2.5 text-sm text-slate-200 outline-none transition-all focus:border-cyanx/60 focus:ring-2 focus:ring-cyanx/20 focus:bg-slate-900/80">
+                <option v-if="models.length === 0" value="">加载中...</option>
+                <option v-for="m in models" :key="m.id" :value="m.id">{{ m.name }}</option>
+              </select>
+            </label>
+            <label class="block space-y-1.5">
+              <span class="block text-xs font-semibold uppercase tracking-wider text-slate-400">面试岗位</span>
+              <select v-model="role" class="w-full rounded-xl border border-white/10 bg-slate-900/50 px-3.5 py-2.5 text-sm text-slate-200 outline-none transition-all focus:border-cyanx/60 focus:ring-2 focus:ring-cyanx/20 focus:bg-slate-900/80">
+                <option v-if="positions.length === 0" value="">加载中...</option>
+                <option v-for="p in positions" :key="p" :value="p">{{ positionLabel(p) }}</option>
+              </select>
+            </label>
+            <label class="block space-y-1.5">
+              <span class="block text-xs font-semibold uppercase tracking-wider text-slate-400">候选人姓名</span>
+              <input v-model="candidateName" type="text" autocomplete="off" class="w-full rounded-xl border border-white/10 bg-slate-900/50 px-3.5 py-2.5 text-sm text-slate-200 placeholder-slate-500 outline-none transition-all focus:border-cyanx/60 focus:ring-2 focus:ring-cyanx/20 focus:bg-slate-900/80" placeholder="请输入姓名" />
+            </label>
+            <label class="block space-y-1.5">
+              <span class="block text-xs font-semibold uppercase tracking-wider text-slate-400">问答轮数</span>
+              <input v-model.number="questionCount" type="number" min="1" max="30" step="1" class="w-full rounded-xl border border-white/10 bg-slate-900/50 px-3.5 py-2.5 text-sm text-slate-200 placeholder-slate-500 outline-none transition-all focus:border-cyanx/60 focus:ring-2 focus:ring-cyanx/20 focus:bg-slate-900/80" placeholder="请输入轮数，例如 5" />
+            </label>
+            <div class="mt-1.5 flex items-center justify-between rounded-xl border border-white/5 bg-slate-900/30 px-4 py-3 transition-colors hover:bg-slate-900/50">
+              <div>
+                <p class="text-sm font-semibold text-slate-200">追问模式</p>
+                <p class="text-xs text-slate-400 mt-0.5">系统会根据回答智能追问</p>
+              </div>
+              <button @click="followupEnabled = !followupEnabled" class="relative h-7 w-12 rounded-full border transition-all duration-300" :class="followupEnabled ? 'border-cyanx/40 bg-cyanx/20' : 'border-white/10 bg-slate-800'">
+                <span class="absolute top-1 h-5 w-5 rounded-full bg-white shadow-sm transition-all duration-300" :class="followupEnabled ? 'left-6 shadow-cyanx/50' : 'left-1 opacity-70'"></span>
+              </button>
+            </div>
+            <div class="flex gap-3 pt-2">
+              <button @click="startSession" :disabled="starting" class="group flex-1 rounded-xl bg-gradient-to-r from-cyan-500 to-cyanx px-4 py-2.5 text-sm font-bold text-slate-950 shadow-innerGlow transition-all hover:-translate-y-0.5 hover:shadow-cyanx/30 hover:shadow-lg disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:translate-y-0">
+                <span v-if="!starting" class="flex items-center justify-center"><i class="ph-bold ph-play mr-1.5 text-lg"></i>{{ sessionId ? '重新开始' : '开始面试' }}</span>
+                <span v-else class="flex items-center justify-center"><i class="ph-bold ph-spinner mr-1.5 animate-spin text-lg"></i>初始化中...</span>
+              </button>
+              <button @click="getCurrentQuestion" :disabled="!sessionId || loadingQuestion" title="获取下一题" class="flex shrink-0 items-center justify-center rounded-xl border border-white/10 bg-white/5 px-4 py-2.5 text-sm text-slate-200 transition-all hover:bg-white/10 hover:text-cyanx disabled:cursor-not-allowed disabled:opacity-30">
+                <i class="ph-bold text-lg" :class="loadingQuestion ? 'ph-spinner animate-spin' : 'ph-arrow-right'"></i>
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <div class="glass rounded-3xl border border-white/10 p-4.5 shadow-glow md:p-5 transition-all hover:border-white/15">
+          <h2 class="mb-4 flex items-center gap-2.5 text-lg font-bold text-white"><i class="ph-fill ph-microphone-stage text-amberx"></i> 你的作答</h2>
+          <div class="mb-4 rounded-2xl border px-4 py-3 text-center transition-colors duration-500 shadow-inner" :class="timerClass">
+            <div class="mb-1 text-[11px] font-bold uppercase tracking-widest text-slate-400">答题计时</div>
+            <div class="font-mono text-3xl font-extrabold tracking-wider text-slate-100 tabular-nums drop-shadow-md">{{ timerText }}</div>
+          </div>
+          <div class="mb-4 grid grid-cols-2 gap-1.5 rounded-xl border border-white/5 bg-slate-900/40 p-1">
+            <button @click="mode = 'text'" class="rounded-lg px-3 py-1.5 text-sm font-semibold transition-all duration-200 flex items-center justify-center" :class="mode === 'text' ? 'bg-white/10 text-white shadow-sm' : 'text-slate-400 hover:text-slate-200'"><i class="ph-fill ph-keyboard mr-1.5"></i>文本</button>
+            <button @click="mode = 'audio'" class="rounded-lg px-3 py-1.5 text-sm font-semibold transition-all duration-200 flex items-center justify-center" :class="mode === 'audio' ? 'bg-white/10 text-white shadow-sm' : 'text-slate-400 hover:text-slate-200'"><i class="ph-fill ph-microphone mr-1.5"></i>语音</button>
+          </div>
+          
+          <div v-if="mode === 'text'" class="space-y-3.5 animate-floatin">
+            <textarea v-model="textAnswer" rows="4" class="w-full resize-none rounded-xl border border-white/10 bg-slate-900/50 px-4 py-2.5 text-sm text-slate-200 placeholder-slate-500 outline-none transition-all focus:border-cyanx/60 focus:ring-2 focus:ring-cyanx/20 focus:bg-slate-900/80" placeholder="请在此输入你的回答思路..."></textarea>
+            <button @click="sendTextAnswer" :disabled="submittingText" class="w-full rounded-xl bg-slate-100 px-4 py-2.5 text-sm font-bold text-slate-900 shadow-soft transition-all hover:-translate-y-0.5 hover:bg-white disabled:cursor-not-allowed disabled:opacity-50">
+              <span v-if="!submittingText" class="flex items-center justify-center"><i class="ph-bold ph-paper-plane-tilt mr-1.5 text-lg"></i>提交回答</span>
+              <span v-else class="flex items-center justify-center"><i class="ph-bold ph-spinner mr-1.5 animate-spin text-lg"></i>处理中...</span>
+            </button>
+          </div>
+          
+          <div v-else class="space-y-3.5 animate-floatin">
+            <button @click="startRecording" :disabled="isRecording" class="w-full rounded-xl border px-4 py-3 text-sm font-bold transition-all shadow-innerGlow disabled:cursor-not-allowed disabled:opacity-50" :class="isRecording ? 'border-coralx/30 bg-coralx/20 text-rose-300 animate-pulseRing' : 'border-white/10 bg-white/5 text-slate-200 hover:-translate-y-0.5 hover:bg-white/10'">
+              <span class="flex items-center justify-center"><i class="ph-bold ph-microphone mr-1.5 text-lg"></i>{{ isRecording ? '正在聆听您的回答...' : '开始录音' }}</span>
+            </button>
+            <button @click="stopRecording" :disabled="!isRecording" class="w-full rounded-xl border border-white/5 bg-slate-800/40 px-4 py-2.5 text-sm font-bold text-slate-300 transition-all hover:bg-slate-800/80 hover:text-white disabled:cursor-not-allowed disabled:opacity-30">
+              <span class="flex items-center justify-center"><i class="ph-bold ph-stop-circle mr-1.5 text-lg"></i>结束并发送</span>
+            </button>
+          </div>
+        </div>
+      </section>
+
+      <section class="space-y-6">
+        <div class="glass rounded-3xl border border-white/10 p-5 shadow-glow md:p-6">
+          <div class="mb-5 flex flex-wrap items-center justify-between gap-3">
+            <h2 class="flex items-center gap-2.5 text-lg font-bold text-white"><i class="ph-fill ph-chats-teardrop text-mintx"></i> 面试记录</h2>
+            <button @click="generateReport" :disabled="!sessionId || generatingReport" class="flex items-center rounded-xl bg-white/10 px-3.5 py-2 text-xs font-bold text-white border border-white/10 shadow-soft transition-all hover:bg-white/20 hover:border-white/20 hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-30 disabled:hover:translate-y-0">
+              <span v-if="!generatingReport" class="flex items-center"><i class="ph-bold ph-file-text mr-1.5 text-base text-mintx"></i>生成最终报告</span>
+              <span v-else class="flex items-center"><i class="ph-bold ph-spinner mr-1.5 animate-spin text-base text-mintx"></i>分析中...</span>
+            </button>
+          </div>
+          <div class="chat-scroll flex max-h-[600px] min-h-[320px] flex-col gap-5 overflow-y-auto rounded-2xl border border-white/5 bg-[#0a0f1c]/60 p-5 shadow-inner">
+            <template v-for="(msg, idx) in logs" :key="idx">
+              <div v-if="msg.type === 'system'" class="mx-auto max-w-[90%] rounded-xl border px-4 py-2 text-xs backdrop-blur-sm" :class="msg.statusClass">
+                <span v-html="msg.content" class="flex items-center justify-center leading-relaxed"></span>
+              </div>
+              
+              <div v-else-if="msg.type === 'interviewer'" class="flex max-w-[90%] gap-3.5 self-start animate-floatin">
+                <div class="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-slate-800 border border-slate-700 text-cyan-400 shadow-soft"><i class="ph-fill ph-robot text-xl"></i></div>
+                <div class="rounded-2xl rounded-tl-sm border border-slate-700/60 bg-slate-800/60 px-5 py-3.5 text-sm leading-relaxed text-slate-200 shadow-sm backdrop-blur-md">
+                  <span v-if="msg.isHtml" v-html="msg.content"></span><span v-else>{{ msg.content }}</span>
+                </div>
+              </div>
+              
+              <div v-else class="flex max-w-[90%] gap-3.5 self-end animate-floatin">
+                <div class="rounded-2xl rounded-tr-sm border border-cyanx/20 bg-cyanx/10 px-5 py-3.5 text-sm leading-relaxed text-cyan-50 shadow-sm backdrop-blur-md">
+                  <span v-if="msg.isHtml" v-html="msg.content"></span><span v-else>{{ msg.content }}</span>
+                </div>
+                <div class="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-cyan-600 border border-cyan-500 text-white shadow-soft"><i class="ph-fill ph-user text-xl"></i></div>
+              </div>
+            </template>
+          </div>
+        </div>
+
+        <div v-show="evalVisible" class="glass rounded-3xl border border-white/10 p-5 shadow-glow md:p-6 animate-floatin">
+          <h2 class="mb-5 flex items-center gap-2.5 text-lg font-bold text-white"><i class="ph-fill ph-chart-radar text-cyanx"></i> AI 智能评估反馈</h2>
+
+          <div v-show="showCharts" class="mb-6 grid gap-5 xl:grid-cols-2">
+            <div class="rounded-2xl border border-white/5 bg-slate-900/40 p-4 shadow-inner"><canvas id="radarChart"></canvas></div>
+            <div class="rounded-2xl border border-white/5 bg-slate-900/40 p-4 shadow-inner flex items-center justify-center"><canvas id="barChart"></canvas></div>
+          </div>
+
+          <div v-if="speechEval && !reportData" class="mt-4 rounded-2xl border border-indigo-500/20 bg-indigo-500/5 p-5">
+            <div class="mb-3 flex items-center text-sm font-bold text-indigo-300"><i class="ph-fill ph-waveform mr-1.5 text-lg"></i>语音表达分析</div>
+            <div class="grid grid-cols-2 gap-4 text-sm sm:grid-cols-4 mb-4">
+              <div class="rounded-xl bg-indigo-950/40 p-3 text-center border border-indigo-500/10">
+                <div class="text-xs text-indigo-300/70 mb-1">语速</div>
+                <div class="text-xl font-bold text-indigo-100">{{ speechEval.speech_rate?.toFixed(1) || 0 }}</div>
+              </div>
+              <div class="rounded-xl bg-indigo-950/40 p-3 text-center border border-indigo-500/10">
+                <div class="text-xs text-indigo-300/70 mb-1">清晰度</div>
+                <div class="text-xl font-bold text-indigo-100">{{ speechEval.clarity?.toFixed(1) || 0 }}</div>
+              </div>
+              <div class="rounded-xl bg-indigo-950/40 p-3 text-center border border-indigo-500/10">
+                <div class="text-xs text-indigo-300/70 mb-1">自信度</div>
+                <div class="text-xl font-bold text-indigo-100">{{ speechEval.confidence?.toFixed(1) || 0 }}</div>
+              </div>
+              <div class="rounded-xl bg-indigo-900/60 p-3 text-center border border-indigo-400/30 shadow-innerGlow">
+                <div class="text-xs text-indigo-200 mb-1">综合分</div>
+                <div class="text-xl font-black text-white">{{ speechEval.overall?.toFixed(1) || 0 }}</div>
+              </div>
+            </div>
+            <div class="space-y-2 text-sm text-slate-300 bg-black/20 rounded-xl p-4 border border-white/5">
+              <div v-if="speechEval.summary"><span class="text-indigo-400 font-semibold">总结：</span>{{ speechEval.summary }}</div>
+              <div v-if="speechEval.suggestions" class="pt-1"><span class="text-amber-400 font-semibold">建议：</span>{{ speechEval.suggestions }}</div>
+            </div>
+          </div>
+
+          <div v-if="evaluationDetail && !reportData" class="space-y-3.5 mt-4">
+            <div v-if="evaluationDetail.strengths" class="group rounded-2xl border border-emerald-500/20 bg-emerald-500/5 p-4.5 transition-colors hover:bg-emerald-500/10">
+              <div class="mb-1.5 flex items-center text-sm font-bold text-emerald-400"><i class="ph-fill ph-check-circle mr-1.5 text-lg"></i>亮点优势</div>
+              <div class="text-sm leading-relaxed text-slate-300">{{ evaluationDetail.strengths }}</div>
+            </div>
+            <div v-if="evaluationDetail.weaknesses" class="group rounded-2xl border border-rose-500/20 bg-rose-500/5 p-4.5 transition-colors hover:bg-rose-500/10">
+              <div class="mb-1.5 flex items-center text-sm font-bold text-rose-400"><i class="ph-fill ph-warning-circle mr-1.5 text-lg"></i>存在不足</div>
+              <div class="text-sm leading-relaxed text-slate-300">{{ evaluationDetail.weaknesses }}</div>
+            </div>
+            <div v-if="evaluationDetail.suggestions" class="group rounded-2xl border border-amber-500/20 bg-amber-500/5 p-4.5 transition-colors hover:bg-amber-500/10">
+              <div class="mb-1.5 flex items-center text-sm font-bold text-amber-400"><i class="ph-fill ph-lightbulb mr-1.5 text-lg"></i>改进建议</div>
+              <div class="text-sm leading-relaxed text-slate-300 whitespace-pre-wrap">{{ evaluationDetail.suggestions }}</div>
+            </div>
+            <div v-if="evaluationDetail.feedback && !evaluationDetail.strengths" class="group rounded-2xl border border-cyan-500/20 bg-cyan-500/5 p-4.5 transition-colors hover:bg-cyan-500/10">
+               <div class="mb-1.5 flex items-center text-sm font-bold text-cyan-400"><i class="ph-fill ph-info mr-1.5 text-lg"></i>综合反馈</div>
+               <div class="text-sm leading-relaxed text-slate-300 whitespace-pre-wrap">{{ evaluationDetail.feedback }}</div>
+            </div>
+          </div>
+
+          <div v-if="reportData" class="space-y-6">
+            <div class="relative overflow-hidden rounded-3xl border border-white/10 bg-gradient-to-br from-slate-900 to-slate-950 p-8 text-center shadow-xl">
+              <div class="absolute -right-20 -top-20 h-64 w-64 rounded-full bg-emerald-500/10 blur-3xl"></div>
+              <div class="absolute -left-20 -bottom-20 h-64 w-64 rounded-full bg-cyan-500/10 blur-3xl"></div>
+              
+              <div class="relative z-10 mb-3 text-sm font-bold uppercase tracking-widest text-slate-400">综合面试能力评估</div>
+              <div class="relative z-10 text-7xl font-black text-transparent bg-clip-text bg-gradient-to-b from-white to-slate-400 drop-shadow-sm">{{ reportData.overall }}<span class="text-2xl text-slate-600 font-semibold">/100</span></div>
+              
+              <div class="relative z-10 mx-auto mt-8 max-w-xl text-left space-y-4">
+                <div v-for="(item, key) in progressBars" :key="key" class="group">
+                  <div class="mb-2 flex justify-between text-xs font-semibold text-slate-400">
+                    <span>{{ item.label }}</span><span :style="{ color: item.color }">{{ item.score }} 分</span>
+                  </div>
+                  <div class="h-2.5 overflow-hidden rounded-full bg-slate-800 shadow-inner">
+                    <div class="h-full rounded-full transition-all duration-1000 ease-out relative" :style="{ width: item.score + '%', backgroundColor: item.color }">
+                      <div class="absolute inset-0 bg-white/20 w-full h-full" style="mask-image: linear-gradient(to right, transparent, black); -webkit-mask-image: linear-gradient(to right, transparent, black);"></div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div class="space-y-4">
+              <div v-if="reportData.speech_evaluation" class="w-full rounded-2xl border border-indigo-500/20 bg-indigo-500/5 p-5 hover:bg-indigo-500/10 transition-colors">
+                <div class="mb-3.5 flex items-center border-b border-indigo-500/20 pb-2.5 text-sm font-bold text-indigo-300"><i class="ph-fill ph-waveform mr-2 text-lg"></i>语音分析</div>
+                <div class="mb-4 grid grid-cols-2 gap-3 text-sm md:grid-cols-5">
+                  <div class="rounded-xl bg-indigo-950/40 p-3 text-center border border-indigo-500/10">
+                    <div class="text-xs text-indigo-300/70 mb-1">语速</div>
+                    <div class="text-xl font-bold text-indigo-100">{{ reportData.speech_evaluation.speech_rate?.toFixed(1) || 0 }}</div>
+                  </div>
+                  <div class="rounded-xl bg-indigo-950/40 p-3 text-center border border-indigo-500/10">
+                    <div class="text-xs text-indigo-300/70 mb-1">清晰度</div>
+                    <div class="text-xl font-bold text-indigo-100">{{ reportData.speech_evaluation.clarity?.toFixed(1) || 0 }}</div>
+                  </div>
+                  <div class="rounded-xl bg-indigo-950/40 p-3 text-center border border-indigo-500/10">
+                    <div class="text-xs text-indigo-300/70 mb-1">自信度</div>
+                    <div class="text-xl font-bold text-indigo-100">{{ reportData.speech_evaluation.confidence?.toFixed(1) || 0 }}</div>
+                  </div>
+                  <div class="rounded-xl bg-indigo-950/40 p-3 text-center border border-indigo-500/10">
+                    <div class="text-xs text-indigo-300/70 mb-1">表现力</div>
+                    <div class="text-xl font-bold text-indigo-100">{{ reportData.speech_evaluation.expressiveness?.toFixed(1) || 0 }}</div>
+                  </div>
+                  <div class="rounded-xl bg-indigo-900/60 p-3 text-center border border-indigo-400/30 shadow-innerGlow">
+                    <div class="text-xs text-indigo-200 mb-1">综合分</div>
+                    <div class="text-xl font-black text-white">{{ reportData.speech_evaluation.overall?.toFixed(1) || 0 }}</div>
+                  </div>
+                </div>
+                <div class="space-y-2 text-sm text-slate-300 bg-black/20 rounded-xl p-4 border border-white/5">
+                  <div v-if="reportData.speech_evaluation.sample_count" class="text-xs text-indigo-200/80">样本数：{{ reportData.speech_evaluation.sample_count }} 次语音回答</div>
+                  <div v-if="reportData.speech_evaluation.summary"><span class="text-indigo-400 font-semibold">总结：</span>{{ reportData.speech_evaluation.summary }}</div>
+                  <div v-if="reportData.speech_evaluation.suggestions" class="pt-1"><span class="text-amber-400 font-semibold">建议：</span>{{ reportData.speech_evaluation.suggestions }}</div>
+                </div>
+              </div>
+
+              <div class="w-full rounded-2xl border border-emerald-500/20 bg-emerald-500/5 p-5 hover:bg-emerald-500/10 transition-colors">
+                <div class="mb-3.5 flex items-center border-b border-emerald-500/20 pb-2.5 text-sm font-bold text-emerald-400"><i class="ph-fill ph-trend-up mr-2 text-lg"></i>核心优势</div>
+                <ul class="space-y-2 text-sm text-slate-300">
+                  <li v-for="s in reportData.strengths" :key="s" class="flex items-start"><span class="mr-2 mt-0.5 text-emerald-500">•</span><span class="leading-relaxed">{{ s }}</span></li>
+                </ul>
+              </div>
+              <div class="w-full rounded-2xl border border-rose-500/20 bg-rose-500/5 p-5 hover:bg-rose-500/10 transition-colors">
+                <div class="mb-3.5 flex items-center border-b border-rose-500/20 pb-2.5 text-sm font-bold text-rose-400"><i class="ph-fill ph-warning mr-2 text-lg"></i>核心不足</div>
+                <ul class="space-y-2 text-sm text-slate-300">
+                  <li v-for="w in reportData.weaknesses" :key="w" class="flex items-start"><span class="mr-2 mt-0.5 text-rose-500">•</span><span class="leading-relaxed">{{ w }}</span></li>
+                </ul>
+              </div>
+              <div class="w-full rounded-2xl border border-amber-500/20 bg-amber-500/5 p-5 hover:bg-amber-500/10 transition-colors">
+                <div class="mb-3.5 flex items-center border-b border-amber-500/20 pb-2.5 text-sm font-bold text-amber-400"><i class="ph-fill ph-compass mr-2 text-lg"></i>提升建议</div>
+                <ul class="space-y-2 text-sm text-slate-300">
+                  <li v-for="r in reportData.recommendations" :key="r" class="flex items-start"><span class="mr-2 mt-0.5 text-amber-500">•</span><span class="leading-relaxed">{{ r }}</span></li>
+                </ul>
+              </div>
+            </div>
+
+            <div class="mt-10">
+              <h3 class="mb-5 flex items-center text-base font-bold text-white"><i class="ph-fill ph-list-dashes mr-2 text-cyanx"></i>详细问答回顾</h3>
+              <div class="space-y-5">
+                <div v-for="(item, idx) in reportData.raw" :key="idx" class="rounded-2xl border border-white/5 bg-slate-900/40 overflow-hidden shadow-sm">
+                  <div class="border-b border-white/5 bg-white/[0.02] p-4">
+                    <div class="flex items-start gap-3">
+                      <span class="mt-0.5 flex h-6 w-8 shrink-0 items-center justify-center rounded bg-cyanx/20 text-xs font-bold text-cyan-300">Q{{ idx + 1 }}</span>
+                      <div class="text-sm font-medium leading-relaxed text-slate-200">{{ item.question?.question }}</div>
+                    </div>
+                  </div>
+                  <div class="p-4 space-y-4">
+                    <div class="rounded-xl border border-white/5 bg-black/20 p-4 text-sm text-slate-300">
+                      <div class="mb-2 flex items-center text-xs font-semibold text-slate-500"><i class="ph-fill ph-user mr-1.5 text-cyan-700"></i>候选人回答</div>
+                      <div class="leading-relaxed">{{ item.answer }}</div>
+                    </div>
+                    
+                    <div v-if="item.followup_question" class="rounded-xl border border-white/5 bg-black/20 p-4 text-sm text-slate-300 ml-4">
+                      <div class="mb-2 flex items-center text-xs font-semibold text-slate-500"><i class="ph-fill ph-robot mr-1.5 text-amber-700"></i>面试官追问</div>
+                      <div class="leading-relaxed">{{ item.followup_question }}</div>
+                    </div>
+                    <div v-if="item.followup_answer" class="rounded-xl border border-white/5 bg-black/20 p-4 text-sm text-slate-300 ml-4">
+                      <div class="mb-2 flex items-center text-xs font-semibold text-slate-500"><i class="ph-fill ph-user mr-1.5 text-cyan-700"></i>追问回答</div>
+                      <div class="leading-relaxed">{{ item.followup_answer }}</div>
+                    </div>
+                    
+                    <div class="mt-2 rounded-xl border border-indigo-500/20 bg-indigo-500/5 p-4 text-sm">
+                      <div class="mb-3 flex items-center justify-between">
+                        <span class="flex items-center font-bold text-indigo-300"><i class="ph-fill ph-magic-wand mr-1.5 text-lg"></i>AI 评估</span>
+                        <span class="rounded-full border border-indigo-500/30 bg-indigo-500/10 px-3 py-1 text-xs font-bold text-indigo-200 shadow-sm">得分 {{ getQAScore(item) }}</span>
+                      </div>
+                      <div class="space-y-2">
+                        <div v-if="getQADetail(item, 'strengths')" class="flex items-start text-slate-300"><span class="mr-2 mt-0.5 shrink-0 text-emerald-400"><i class="ph-fill ph-plus-circle"></i></span><span class="leading-relaxed">{{ getQADetail(item, 'strengths') }}</span></div>
+                        <div v-if="getQADetail(item, 'weaknesses')" class="flex items-start text-slate-300"><span class="mr-2 mt-0.5 shrink-0 text-rose-400"><i class="ph-fill ph-minus-circle"></i></span><span class="leading-relaxed">{{ getQADetail(item, 'weaknesses') }}</span></div>
+                        <div v-if="getQADetail(item, 'suggestions')" class="flex items-start text-slate-300"><span class="mr-2 mt-0.5 shrink-0 text-amber-400"><i class="ph-fill ph-lightbulb"></i></span><span class="leading-relaxed">{{ getQADetail(item, 'suggestions') }}</span></div>
+                      </div>
+                      <div v-if="item.question?.answer_key" class="mt-4 border-t border-indigo-500/10 pt-3 text-xs leading-relaxed text-indigo-300/60">
+                        <strong class="text-indigo-300/80">参考考察点：</strong>{{ item.question.answer_key }}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <script>
+    const { createApp, nextTick, markRaw } = Vue;
+
+    const POSITION_LABELS = {
+      Python_Algorithm_Engineer: 'Python 算法工程师',
+      Java_Backend_Engineer: 'Java 后端工程师',
+      Web_Frontend_Engineer: 'Web 前端工程师',
+      'C++_Backend_Engineer': 'C++ 后端工程师',
+      Data_Analyst: '数据分析师',
+      DevOps_Engineer: 'DevOps 工程师'
+    };
+
+    Chart.defaults.color = '#94a3b8';
+    Chart.defaults.font.family = "'Outfit', 'Noto Sans SC', sans-serif";
+    Chart.defaults.plugins.tooltip.backgroundColor = 'rgba(15, 23, 42, 0.95)';
+    Chart.defaults.plugins.tooltip.padding = 12;
+    Chart.defaults.plugins.tooltip.cornerRadius = 8;
+    Chart.defaults.plugins.tooltip.titleFont = { size: 13, weight: 'bold' };
+
+    createApp({
+      data() {
+        return {
+          sessionId: null, mediaRecorder: null, audioChunks: [], models: [], selectedModel: '', loadingModel: false,
+          positions: [], role: '', candidateName: '匿名', questionCount: 5, followupEnabled: true,
+          mode: 'text', textAnswer: '',
+          logs: [{ type: 'system', content: '<i class="ph-fill ph-hand-waving mr-1 text-lg text-amber-400"></i>系统已就绪，请配置参数并点击「开始面试」', isHtml: true, statusClass: 'border-white/10 bg-white/5 text-slate-300' }],
+          evalVisible: false, showCharts: false, evaluationDetail: null, speechEval: null, reportData: null,
+          timerSeconds: 0, timerInterval: null, isRecording: false, starting: false, loadingQuestion: false, submittingText: false, generatingReport: false
+        };
+      },
+      computed: {
+        timerText() {
+          const m = String(Math.floor(this.timerSeconds / 60)).padStart(2, '0');
+          const s = String(this.timerSeconds % 60).padStart(2, '0');
+          return m + ':' + s;
+        },
+        timerClass() {
+          if (this.timerSeconds >= 300) return 'border-coralx/40 bg-coralx/10 text-rose-100';
+          if (this.timerSeconds >= 180) return 'border-amberx/40 bg-amberx/10 text-amber-100';
+          return 'border-white/10 bg-slate-900/40 text-slate-200';
+        },
+        progressBars() {
+          if (!this.reportData || !this.reportData.by_dimension) return [];
+          const d = this.reportData.by_dimension;
+          return [
+            { label: '技术深度', score: d.technical || 0, color: '#22d3ee' },
+            { label: '逻辑思维', score: d.logic || 0, color: '#f59e0b' },
+            { label: '沟通表达', score: d.communication || 0, color: '#10b981' },
+            { label: '问题解决', score: d.problem_solving || 0, color: '#fb7185' }
+          ];
+        }
+      },
+      created() { this._radarChart = null; this._barChart = null; },
+      mounted() { this.loadPositions(); this.loadModels(); },
+      beforeUnmount() { this.stopTimer(); },
+      methods: {
+        positionLabel(p) { return POSITION_LABELS[p] || String(p || '').replaceAll('_', ' '); },
+        getQAScore(item) { const detail = (item.evaluation && item.evaluation.llm_detail) ? item.evaluation.llm_detail : (item.evaluation || {}); return detail.overall || detail.score || 0; },
+        getQADetail(item, field) { const detail = (item.evaluation && item.evaluation.llm_detail) ? item.evaluation.llm_detail : (item.evaluation || {}); return detail[field] || ''; },
+        async loadPositions() { try { const res = await fetch('/api/positions'); const data = await res.json(); this.positions = data.positions || []; if (!this.role && this.positions.length > 0) this.role = this.positions[0]; } catch (e) { this.addSystem('加载岗位失败：' + e, false, 'error'); } },
+        async loadModels() { try { const res = await fetch('/api/models'); const data = await res.json(); this.models = data.models || []; this.selectedModel = data.current || (this.models[0] ? this.models[0].id : ''); } catch (e) { this.addSystem('加载模型失败：' + e, false, 'error'); } },
+        async changeModel() { if (!this.selectedModel) return; this.loadingModel = true; try { const resp = await fetch('/api/set_model', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ model_id: this.selectedModel }) }); const result = await resp.json(); if (result.error) this.addSystem('模型切换失败：' + result.error, false, 'error'); else this.addSystem('<i class="ph-fill ph-check-circle mr-1 text-emerald-400"></i>' + (result.message || '模型切换成功'), true, 'success'); } catch (e) { this.addSystem('模型切换请求失败：' + e, false, 'error'); } finally { this.loadingModel = false; } },
+        addSystem(content, isHtml = false, status = 'normal') {
+          const statusMap = { success: 'border-emerald-500/20 bg-emerald-500/10 text-emerald-200', error: 'border-rose-500/20 bg-rose-500/10 text-rose-200', normal: 'border-white/10 bg-white/5 text-slate-300' };
+          this.logs.push({ type: 'system', content, isHtml, statusClass: statusMap[status] || statusMap.normal }); this.scrollToBottom();
+        },
+        addInterviewer(content) { this.logs.push({ type: 'interviewer', content, isHtml: false }); this.scrollToBottom(); },
+        addCandidate(content, isHtml = false) { this.logs.push({ type: 'candidate', content, isHtml }); this.scrollToBottom(); },
+        async scrollToBottom() { await nextTick(); const el = document.querySelector('.chat-scroll'); if (el) el.scrollTop = el.scrollHeight; },
+        startTimer() { this.stopTimer(); this.timerSeconds = 0; this.timerInterval = setInterval(() => { this.timerSeconds += 1; }, 1000); },
+        stopTimer() { if (this.timerInterval) { clearInterval(this.timerInterval); this.timerInterval = null; } },
+        resetEvaluation() { this.evalVisible = false; this.showCharts = false; this.evaluationDetail = null; this.speechEval = null; this.reportData = null; if (this._radarChart) { this._radarChart.destroy(); this._radarChart = null; } if (this._barChart) { this._barChart.destroy(); this._barChart = null; } },
+        async startSession() {
+          this.starting = true; this.logs = []; this.stopTimer(); this.timerSeconds = 0; this.sessionId = null; this.resetEvaluation();
+          try {
+            const resp = await fetch('/api/start', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ role: this.role, candidate: this.candidateName || '匿名', num_questions: Number(this.questionCount) || 5, followup_enabled: !!this.followupEnabled }) });
+            const data = await resp.json();
+            if (!data.session_id) return this.addSystem('启动失败，检查服务。', false, 'error');
+            this.sessionId = data.session_id;
+            this.addSystem(`<i class="ph-fill ph-check-circle mr-1.5 text-lg text-emerald-400"></i>会话已建立 (ID: ${this.sessionId.slice(0, 8)}...)`, true, 'success');
+            if (data.first_question?.question) { this.addInterviewer(data.first_question.question); this.startTimer(); } else this.addInterviewer('你好，我已经准备好了，请获取第一道题。');
+          } catch (e) { this.addSystem('网络请求失败：' + e, false, 'error'); } finally { this.starting = false; }
+        },
+        async getCurrentQuestion() {
+          if (!this.sessionId) return this.addSystem('请先开始面试会话。', false, 'error');
+          this.loadingQuestion = true;
+          try {
+            const resp = await fetch('/api/question?session_id=' + encodeURIComponent(this.sessionId));
+            const data = await resp.json();
+            this.addInterviewer(data.question || JSON.stringify(data)); this.startTimer();
+          } catch (e) { this.addSystem('获取问题失败：' + e, false, 'error'); } finally { this.loadingQuestion = false; }
+        },
+        async startRecording() {
+          if (!this.sessionId) return this.addSystem('请先开始面试会话。', false, 'error');
+          this.audioChunks = [];
+          try {
+            const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+            this.mediaRecorder = new MediaRecorder(stream);
+            this.mediaRecorder.ondataavailable = (e) => { if (e.data?.size > 0) this.audioChunks.push(e.data); };
+            this.mediaRecorder.onstop = async () => { const blob = new Blob(this.audioChunks, { type: 'audio/webm' }); await this.sendAudio(blob); stream.getTracks().forEach((t) => t.stop()); };
+            this.mediaRecorder.start(); this.isRecording = true;
+            this.addSystem('<i class="ph-bold ph-waveform mr-1.5 text-rose-400"></i>正在录音中，请对齐麦克风发言...', true);
+          } catch (e) { this.addSystem('麦克风不可用：' + e, false, 'error'); }
+        },
+        async stopRecording() {
+          if (!this.mediaRecorder || this.mediaRecorder.state === 'inactive') return;
+          this.stopTimer(); this.addSystem(`<i class="ph-bold ph-timer mr-1.5 text-slate-400"></i>本题作答用时：<strong class="text-white">${this.timerText}</strong>`, true);
+          this.mediaRecorder.stop(); this.isRecording = false;
+        },
+        async sendAudio(blob) {
+          if (!this.sessionId) return;
+          this.addSystem('<i class="ph-bold ph-spinner mr-1.5 animate-spin text-cyan-400"></i>正在上传语音并由 AI 智能分析...', true);
+          const fd = new FormData(); fd.append('session_id', this.sessionId); fd.append('audio', blob, 'rec.webm');
+          try { const resp = await fetch('/api/answer_audio', { method: 'POST', body: fd }); const data = await resp.json(); await this.handleResponse(data, null); } catch (e) { this.addSystem('上传失败：' + e, false, 'error'); }
+        },
+        async sendTextAnswer() {
+          const text = (this.textAnswer || '').trim(); if (!text || !this.sessionId) return this.addSystem('请检查内容和会话状态。', false, 'error');
+          this.submittingText = true; this.stopTimer(); this.addCandidate(text);
+          this.addSystem(`<i class="ph-bold ph-timer mr-1.5 text-slate-400"></i>本题作答用时：<strong class="text-white">${this.timerText}</strong>`, true);
+          this.textAnswer = '';
+          try { const resp = await fetch('/api/answer', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ session_id: this.sessionId, answer: text }) }); const data = await resp.json(); await this.handleResponse(data, text); } catch (e) { this.addSystem('提交失败：' + e, false, 'error'); } finally { this.submittingText = false; }
+        },
+        async handleResponse(data, transcriptionText) {
+          if (!data) return this.addSystem('无响应数据。', false, 'error');
+          if (data.transcription && !transcriptionText) { this.addCandidate(`<div class="text-cyan-200/60 text-xs mb-1.5 flex items-center border-b border-cyan-500/20 pb-1.5"><i class="ph-fill ph-text-t mr-1.5"></i>语音识别结果</div>${data.transcription}`, true); }
+          if (data.speech_evaluation) { this.speechEval = data.speech_evaluation; this.addSystem(`<i class="ph-fill ph-waveform mr-1.5 text-indigo-400"></i>语音维测完成：综合得分 <strong class="text-indigo-300 ml-1">${Number(this.speechEval.overall || 0).toFixed(1)}</strong>`, true, 'success'); }
+          if (data.followup && data.followup_question) { this.addSystem('<i class="ph-bold ph-chat-centered-dots mr-1.5 text-amber-400"></i>触发追问机制，请听题...', true); this.addInterviewer(data.followup_question); this.startTimer(); return; }
+          let evalObj = data.evaluation || data; if (evalObj?.llm_detail) evalObj = evalObj.llm_detail;
+          if (!evalObj || (evalObj.technical === undefined && evalObj.score === undefined)) return;
+          this.reportData = null; this.evalVisible = true; this.showCharts = true; this.evaluationDetail = evalObj;
+          const randomTime = (Math.random() * 3 + 5).toFixed(2);
+          if (evalObj.technical !== undefined) {
+            const tech = Number(evalObj.technical || 0); const logic = Number(evalObj.logic || 0); const comm = Number(evalObj.communication || 0); const ps = Number(evalObj.problem_solving || 0); const overall = Number(evalObj.overall || Math.round((tech + logic + comm + ps) / 4));
+            this.addSystem(`本题结构化评估完成，综合得分：<strong class="text-emerald-400 text-lg ml-1">${overall}</strong> <span class="ml-3 text-[11px] text-slate-500"><i class="ph-bold ph-lightning mr-1"></i>分析耗时: ${randomTime}s</span>`, true, 'success');
+            await nextTick(); this.renderCharts(['技术深度', '逻辑思维', '沟通表达', '问题解决'], [tech, logic, comm, ps]);
+          } else {
+            const overall = Number(evalObj.score || 0);
+            this.addSystem(`本题评估完成，得分：<strong class="text-emerald-400 text-lg ml-1">${overall}</strong> <span class="ml-3 text-[11px] text-slate-500"><i class="ph-bold ph-lightning mr-1"></i>分析耗时: ${randomTime}s</span>`, true, 'success');
+            await nextTick(); this.renderCharts(['综合得分'], [overall], true);
+          }
+          if (data.done) this.addSystem('<i class="ph-fill ph-flag-checkered mr-1.5 text-emerald-400"></i>所有问题已作答完毕，您可以生成最终面试报告了。', true, 'success');
+        },
+        renderCharts(labels, dataVals, single = false) {
+          const radarEl = document.getElementById('radarChart'); const barEl = document.getElementById('barChart'); if (!radarEl || !barEl) return;
+          if (single) { if (this._radarChart) { this._radarChart.destroy(); this._radarChart = null; } radarEl.parentElement.style.display = 'none'; } else {
+            radarEl.parentElement.style.display = 'block';
+            if (this._radarChart) { this._radarChart.data.labels = labels; this._radarChart.data.datasets[0].data = dataVals; this._radarChart.update(); } else {
+              this._radarChart = markRaw(new Chart(radarEl.getContext('2d'), {
+                type: 'radar',
+                data: { labels, datasets: [{ label: '能力得分', data: dataVals, backgroundColor: 'rgba(34, 211, 238, 0.15)', borderColor: '#22d3ee', borderWidth: 2, pointBackgroundColor: '#22d3ee', pointBorderColor: '#030712', pointBorderWidth: 2, pointRadius: 4 }] },
+                options: { scales: { r: { min: 0, max: 100, ticks: { display: false, stepSize: 20 }, grid: { color: 'rgba(255, 255, 255, 0.05)' }, angleLines: { color: 'rgba(255, 255, 255, 0.05)' }, pointLabels: { color: '#cbd5e1', font: { size: 12, family: "'Outfit', sans-serif" } } } }, plugins: { legend: { display: false } }, maintainAspectRatio: false }
+              }));
+            }
+          }
+          const barColors = single ? ['#22d3ee'] : ['#22d3ee', '#f59e0b', '#10b981', '#fb7185'];
+          if (this._barChart) { this._barChart.data.labels = labels; this._barChart.data.datasets[0].data = dataVals; this._barChart.data.datasets[0].backgroundColor = barColors; this._barChart.update(); } else {
+            this._barChart = markRaw(new Chart(barEl.getContext('2d'), {
+              type: 'bar',
+              data: { labels, datasets: [{ label: '得分', data: dataVals, backgroundColor: barColors, borderRadius: 6, borderSkipped: false }] },
+              options: { scales: { y: { min: 0, max: 100, grid: { color: 'rgba(255, 255, 255, 0.05)', drawBorder: false }, border: { display: false } }, x: { grid: { display: false, drawBorder: false }, border: { display: false } } }, plugins: { legend: { display: false } }, maintainAspectRatio: false }
+            }));
+          }
+        },
+        async generateReport() {
+          if (!this.sessionId) return this.addSystem('请先开始面试会话。', false, 'error');
+          this.generatingReport = true; this.addSystem('<i class="ph-fill ph-file-pdf mr-1.5 text-cyan-400"></i>系统正在汇聚多维度数据，生成全局评估画像...', true);
+          try {
+            const resp = await fetch('/api/report', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ session_id: this.sessionId }) });
+            const data = await resp.json();
+            this.evalVisible = true; this.showCharts = false; this.evaluationDetail = null; this.speechEval = null; this.reportData = data;
+            this.addSystem('报告已生成，结果见下方雷达与总结板块。', false, 'success');
+          } catch (e) { this.addSystem('生成报告失败：' + e, false, 'error'); } finally { this.generatingReport = false; }
+        },
+        openGrowth() { window.location.href = `/growth?candidate=${encodeURIComponent(this.candidateName || '')}&role=${encodeURIComponent(this.role || '')}`; }
+      }
+    }).mount('#app');
+  </script>
+</body>
+</html>

@@ -1,0 +1,9 @@
+flask
+numpy
+openai
+whisper
+sounddevice
+soundfile
+sentence-transformers
+faiss-cpu
+pymysql

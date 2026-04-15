@@ -1,0 +1,11 @@
+{
+  "mysql": {
+    "enabled": 1,
+    "host": "127.0.0.1",
+    "port": 3306,
+    "user": "ai_user",
+    "password": "LJD02232411",
+    "database": "ai_interview",
+    "charset": "utf8mb4"
+  }
+}

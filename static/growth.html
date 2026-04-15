@@ -1,0 +1,377 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>个人成长曲线 | Vue 3 + Tailwind</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&family=Noto+Sans+SC:wght@400;500;700&display=swap" rel="stylesheet">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: { 
+        extend: { 
+          fontFamily: { sans: ['Outfit', 'Noto Sans SC', 'system-ui', 'sans-serif'] }, 
+          colors: { cyanx: '#22d3ee', mintx: '#10b981', amberx: '#f59e0b', coralx: '#fb7185' }, 
+          boxShadow: { 
+            glow: '0 0 0 1px rgba(255,255,255,0.05), 0 8px 32px -8px rgba(0,0,0,0.5)', 
+            soft: '0 4px 20px -2px rgba(0, 0, 0, 0.25)', 
+            innerGlow: 'inset 0 1px 0 0 rgba(255,255,255,0.1)' 
+          } 
+        } 
+      }
+    };
+  </script>
+  <script src="https://unpkg.com/@phosphor-icons/web"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="https://unpkg.com/vue@3/dist/vue.global.prod.js"></script>
+  <style>
+    body { 
+      background-color: #030712;
+      background-image: 
+        radial-gradient(ellipse 80% 50% at 50% -20%, rgba(34, 211, 238, 0.12), transparent),
+        radial-gradient(ellipse 60% 50% at 50% 120%, rgba(16, 185, 129, 0.08), transparent);
+      min-height: 100vh;
+      color: #f8fafc;
+    }
+    .glass { 
+      background: rgba(15, 23, 42, 0.45); 
+      backdrop-filter: blur(16px); 
+      -webkit-backdrop-filter: blur(16px); 
+    }
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.1); border-radius: 999px; }
+    ::-webkit-scrollbar-thumb:hover { background: rgba(255, 255, 255, 0.2); }
+  </style>
+</head>
+<body class="font-sans antialiased selection:bg-cyanx/30 selection:text-cyan-50">
+  <div id="app" class="mx-auto max-w-6xl px-4 py-8 md:px-8 md:py-12">
+    <section class="glass rounded-3xl border border-white/10 p-6 shadow-glow md:p-8">
+      <header class="mb-8 flex flex-col gap-5 md:flex-row md:items-end md:justify-between">
+        <div>
+          <h1 class="flex items-center gap-2.5 text-2xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-white to-slate-400 md:text-4xl"><i class="ph-fill ph-chart-line-up text-cyanx"></i> 个人成长曲线</h1>
+          <p class="mt-2 text-sm text-slate-400">跟踪候选人多次面试的能力变化，支持按岗位过滤分析历史轨迹。</p>
+        </div>
+        <button @click="goBack" class="inline-flex items-center justify-center gap-2 rounded-xl border border-white/10 bg-white/5 px-5 py-2.5 text-sm font-semibold text-slate-200 shadow-soft transition-all hover:bg-white/10 hover:-translate-y-0.5">
+          <i class="ph-bold ph-arrow-left"></i> 返回面试台
+        </button>
+      </header>
+
+      <div class="mb-8 grid gap-4 md:grid-cols-[1fr_1fr_auto]">
+        <select v-model="candidate" class="rounded-xl border border-white/10 bg-slate-900/50 px-4 py-3 text-sm text-slate-200 outline-none transition-all focus:border-cyanx/60 focus:ring-2 focus:ring-cyanx/20 focus:bg-slate-900/80">
+          <option value="">-- 请选择候选人 --</option>
+          <option v-for="c in candidates" :key="c" :value="c">{{ c }}</option>
+        </select>
+        <select v-model="role" class="rounded-xl border border-white/10 bg-slate-900/50 px-4 py-3 text-sm text-slate-200 outline-none transition-all focus:border-cyanx/60 focus:ring-2 focus:ring-cyanx/20 focus:bg-slate-900/80">
+          <option value="">-- 所有岗位 --</option>
+          <option v-for="r in roles" :key="r" :value="r">{{ r }}</option>
+        </select>
+        <button @click="queryGrowthCurve" :disabled="loading" class="group rounded-xl bg-gradient-to-r from-cyan-500 to-cyanx px-6 py-3 text-sm font-bold text-slate-950 shadow-innerGlow transition-all hover:-translate-y-0.5 hover:shadow-cyanx/30 hover:shadow-lg disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:translate-y-0">
+          <span v-if="!loading" class="flex items-center justify-center"><i class="ph-bold ph-magnifying-glass mr-1.5 text-lg"></i>生成报表</span>
+          <span v-else class="flex items-center justify-center"><i class="ph-bold ph-spinner mr-1.5 animate-spin text-lg"></i>查询中...</span>
+        </button>
+      </div>
+
+      <div v-if="message" class="mb-8 flex items-center gap-3 rounded-xl border border-white/5 bg-slate-900/60 px-5 py-4 text-sm text-slate-300 shadow-inner backdrop-blur-sm">
+        <i v-if="messageType === 'info'" class="ph-fill ph-info text-cyanx text-xl"></i>
+        <i v-if="messageType === 'warning'" class="ph-fill ph-warning-circle text-rose-400 text-xl"></i>
+        <i v-if="messageType === 'ghost'" class="ph-fill ph-ghost text-slate-400 text-xl"></i>
+        <i v-if="messageType === 'loading'" class="ph-bold ph-spinner animate-spin text-cyanx text-xl"></i>
+        <span class="font-medium">{{ message }}</span>
+      </div>
+
+      <div v-if="statsVisible" class="mb-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <div class="group relative overflow-hidden rounded-2xl border border-white/5 bg-slate-900/40 p-5 shadow-inner transition-colors hover:bg-slate-900/60">
+          <div class="mb-2 text-xs font-bold uppercase tracking-wider text-slate-400"><i class="ph-fill ph-target mr-1.5 text-base text-cyanx align-text-bottom"></i>最新得分</div>
+          <div class="text-4xl font-black text-white drop-shadow-sm">{{ statLatest }}</div>
+          <div class="mt-2 text-xs text-slate-500">最近一次完整面试</div>
+        </div>
+        <div class="group relative overflow-hidden rounded-2xl border border-white/5 bg-slate-900/40 p-5 shadow-inner transition-colors hover:bg-slate-900/60">
+          <div class="mb-2 text-xs font-bold uppercase tracking-wider text-slate-400"><i class="ph-fill ph-medal mr-1.5 text-base text-amberx align-text-bottom"></i>历史最高</div>
+          <div class="text-4xl font-black text-amber-400 drop-shadow-sm">{{ statBest }}</div>
+          <div class="mt-2 text-xs text-slate-500">综合评估极值</div>
+        </div>
+        <div class="group relative overflow-hidden rounded-2xl border border-white/5 bg-slate-900/40 p-5 shadow-inner transition-colors hover:bg-slate-900/60">
+          <div class="mb-2 text-xs font-bold uppercase tracking-wider text-slate-400">
+             <i class="ph-bold mr-1.5 text-base align-text-bottom" :class="[trendType === 'up' ? 'ph-trend-up text-emerald-400' : (trendType === 'down' ? 'ph-trend-down text-rose-400' : 'ph-minus text-slate-400')]"></i>成长趋势
+          </div>
+          <div class="text-4xl font-black drop-shadow-sm" :class="trendClass">{{ statTrend }}</div>
+          <div class="mt-2 flex items-center gap-1.5 text-xs font-medium" :class="trendDescClass">
+            <i v-if="trendType === 'up'" class="ph-bold ph-arrow-up-right"></i>
+            <i v-if="trendType === 'down'" class="ph-bold ph-arrow-down-right"></i>
+            <span>{{ trendDesc }}</span>
+          </div>
+        </div>
+        <div class="group relative overflow-hidden rounded-2xl border border-white/5 bg-slate-900/40 p-5 shadow-inner transition-colors hover:bg-slate-900/60">
+          <div class="mb-2 text-xs font-bold uppercase tracking-wider text-slate-400"><i class="ph-fill ph-files mr-1.5 text-base text-indigo-400 align-text-bottom"></i>面试次数</div>
+          <div class="text-4xl font-black text-white drop-shadow-sm">{{ statCount }}</div>
+          <div class="mt-2 text-xs text-slate-500">有效会话记录总量</div>
+        </div>
+      </div>
+
+      <div v-show="chartVisible" class="rounded-2xl border border-white/5 bg-slate-900/40 p-5 md:p-7 shadow-inner">
+        <div class="mb-6 flex items-center justify-between">
+          <h3 class="flex items-center gap-2.5 text-base font-bold text-white"><i class="ph-fill ph-chart-polar text-mintx text-lg"></i> 多维度能力变迁轨迹</h3>
+        </div>
+        <div class="relative w-full h-[380px]">
+          <canvas id="growthChart"></canvas>
+        </div>
+      </div>
+    </section>
+  </div>
+
+  <script>
+    const { createApp, markRaw } = Vue;
+
+    // 全局 Chart.js 配置项
+    Chart.defaults.color = '#94a3b8';
+    Chart.defaults.font.family = "'Outfit', 'Noto Sans SC', sans-serif";
+    Chart.defaults.plugins.tooltip.backgroundColor = 'rgba(15, 23, 42, 0.95)';
+    Chart.defaults.plugins.tooltip.padding = 12;
+    Chart.defaults.plugins.tooltip.cornerRadius = 8;
+    Chart.defaults.plugins.tooltip.titleFont = { size: 13, weight: 'bold' };
+
+    createApp({
+      data() {
+        return {
+          candidates: [],
+          roles: [],
+          candidate: '',
+          role: '',
+          loading: false,
+          message: '在上方筛选候选人和岗位并点击“生成报表”',
+          messageType: 'info',
+          statsVisible: false,
+          chartVisible: false,
+          statLatest: '-',
+          statBest: '-',
+          statTrend: '-',
+          statCount: '-',
+          trendClass: 'text-slate-200',
+          trendDescClass: 'text-slate-500',
+          trendDesc: '对比首次面试',
+          trendType: 'flat'
+        };
+      },
+      created() {
+        this._growthChart = null;
+      },
+      async mounted() {
+        await this.loadOptions();
+        
+        const params = new URLSearchParams(window.location.search);
+        if (params.get('candidate')) this.candidate = params.get('candidate');
+        if (params.get('role')) this.role = params.get('role');
+        
+        if (this.candidate) {
+          this.queryGrowthCurve();
+        }
+      },
+      methods: {
+        async loadOptions() {
+          try {
+            const [candRes, posRes] = await Promise.all([
+              fetch('/api/candidates'),
+              fetch('/api/positions')
+            ]);
+            
+            const candData = await candRes.json();
+            const posData = await posRes.json();
+            
+            this.candidates = candData.candidates || [];
+            this.roles = posData.positions || [];
+          } catch (err) {
+            this.message = '加载筛选项失败：' + err;
+            this.messageType = 'warning';
+          }
+        },
+        
+        async queryGrowthCurve() {
+          // 防御性校验
+          const safeCandidate = (this.candidate || '').trim();
+          const safeRole = (this.role || '').trim();
+
+          if (!safeCandidate) {
+            this.message = '请先选择候选人。';
+            this.messageType = 'warning';
+            return;
+          }
+
+          this.loading = true;
+          this.message = '正在生成成长轨迹报表...';
+          this.messageType = 'loading';
+
+          try {
+            const url = `/api/growth_curve?candidate=${encodeURIComponent(safeCandidate)}&role=${encodeURIComponent(safeRole)}&limit=30`;
+            const resp = await fetch(url);
+            const data = await resp.json();
+
+            if (!resp.ok || data.error) {
+              this.message = '查询失败：' + (data.error || resp.statusText);
+              this.messageType = 'warning';
+              return;
+            }
+
+            const points = data.points || [];
+            
+            if (points.length === 0) {
+              this.message = '暂无该候选人的历史完整面试记录。';
+              this.messageType = 'ghost';
+              this.statsVisible = false;
+              this.chartVisible = false;
+              if (this._growthChart) {
+                this._growthChart.destroy();
+                this._growthChart = null;
+              }
+              return;
+            }
+
+            // 更新状态与看板数据
+            this.message = '';
+            this.statsVisible = true;
+            this.chartVisible = true;
+
+            const labels = points.map((_, i) => 'Session #' + (i + 1));
+            const overallVals = points.map(p => Number(p.score || 0));
+
+            this.statLatest = data.latest != null ? Number(data.latest).toFixed(1) : '-';
+            this.statBest = data.best != null ? Number(data.best).toFixed(1) : '-';
+            this.statCount = String(points.length);
+
+            // 趋势数据计算
+            if (data.delta == null) {
+              this.statTrend = '-';
+              this.trendClass = 'text-white';
+              this.trendDescClass = 'text-slate-500';
+              this.trendDesc = '持平';
+              this.trendType = 'flat';
+            } else if (Number(data.delta) > 0) {
+              this.statTrend = '+' + Number(data.delta).toFixed(1);
+              this.trendClass = 'text-emerald-400';
+              this.trendDescClass = 'text-emerald-400';
+              this.trendDesc = '稳步上升';
+              this.trendType = 'up';
+            } else if (Number(data.delta) < 0) {
+              this.statTrend = Number(data.delta).toFixed(1);
+              this.trendClass = 'text-rose-400';
+              this.trendDescClass = 'text-rose-400';
+              this.trendDesc = '需要注意';
+              this.trendType = 'down';
+            } else {
+              this.statTrend = '0.0';
+              this.trendClass = 'text-white';
+              this.trendDescClass = 'text-slate-500';
+              this.trendDesc = '持平';
+              this.trendType = 'flat';
+            }
+
+            // 配置图表数据集
+            const datasets = [
+              {
+                label: '综合表现',
+                data: overallVals,
+                borderColor: '#10b981',
+                backgroundColor: 'rgba(16, 185, 129, 0.1)',
+                pointBackgroundColor: '#10b981',
+                pointBorderColor: '#030712',
+                pointBorderWidth: 2,
+                pointRadius: 5,
+                borderWidth: 3,
+                tension: 0.4,
+                fill: true
+              },
+              {
+                label: '技术深度',
+                data: points.map(p => Number(p.technical_score || 0)),
+                borderColor: '#22d3ee',
+                backgroundColor: 'transparent',
+                pointBackgroundColor: '#22d3ee',
+                pointBorderColor: '#030712',
+                pointBorderWidth: 2,
+                borderWidth: 2,
+                borderDash: [5, 5],
+                tension: 0.4,
+                hidden: true
+              },
+              {
+                label: '逻辑思维',
+                data: points.map(p => Number(p.logic_score || 0)),
+                borderColor: '#f59e0b',
+                backgroundColor: 'transparent',
+                pointBackgroundColor: '#f59e0b',
+                pointBorderColor: '#030712',
+                pointBorderWidth: 2,
+                borderWidth: 2,
+                borderDash: [5, 5],
+                tension: 0.4,
+                hidden: true
+              },
+              {
+                label: '沟通表达',
+                data: points.map(p => Number(p.communication_score || 0)),
+                borderColor: '#fb7185',
+                backgroundColor: 'transparent',
+                pointBackgroundColor: '#fb7185',
+                pointBorderColor: '#030712',
+                pointBorderWidth: 2,
+                borderWidth: 2,
+                borderDash: [5, 5],
+                tension: 0.4,
+                hidden: true
+              }
+            ];
+
+            // 渲染或更新图表
+            if (this._growthChart) {
+              this._growthChart.data.labels = labels;
+              this._growthChart.data.datasets = datasets;
+              this._growthChart.update();
+            } else {
+              const ctx = document.getElementById('growthChart').getContext('2d');
+              this._growthChart = markRaw(new Chart(ctx, {
+                type: 'line',
+                data: { labels, datasets },
+                options: {
+                  maintainAspectRatio: false,  // 强依赖外层 DOM 约束高度
+                  interaction: { mode: 'index', intersect: false },
+                  plugins: {
+                    legend: {
+                      position: 'top',
+                      align: 'end',
+                      labels: { usePointStyle: true, boxWidth: 8, padding: 20, font: { size: 12 } }
+                    }
+                  },
+                  scales: {
+                    y: {
+                      min: 0,
+                      max: 100,
+                      grid: { color: 'rgba(255, 255, 255, 0.05)', drawBorder: false },
+                      border: { display: false }
+                    },
+                    x: {
+                      grid: { display: false, drawBorder: false },
+                      border: { display: false }
+                    }
+                  }
+                }
+              }));
+            }
+          } catch (err) {
+            console.error(err);
+            this.message = '查询异常：' + err.message;
+            this.messageType = 'warning';
+          } finally {
+            this.loading = false;
+          }
+        },
+        
+        goBack() {
+          window.location.href = '/';
+        }
+      }
+    }).mount('#app');
+  </script>
+</body>
+</html>
