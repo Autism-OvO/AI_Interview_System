@@ -9,6 +9,54 @@ app = Flask(__name__, static_folder="static")
 BASE_DIR = Path(__file__).parent
 
 
+def build_position_overview():
+    """聚合题库与知识库信息，供前端岗位展示使用。"""
+    import json
+    from question_bank import test as question_bank
+
+    kb_path = BASE_DIR / 'knowledge_base.json'
+    kb_data = {}
+    if kb_path.exists():
+        with open(kb_path, 'r', encoding='utf-8') as f:
+            kb_data = json.load(f)
+
+    all_roles = sorted(set(question_bank.keys()) | set(kb_data.keys()))
+    overview = {}
+
+    for role in all_roles:
+        q_role = question_bank.get(role, {}) if isinstance(question_bank, dict) else {}
+        q_items = q_role.get('question_bank', []) if isinstance(q_role, dict) else []
+        q_items = q_items if isinstance(q_items, list) else []
+
+        type_stats = {}
+        for q in q_items:
+            q_type = (q or {}).get('type', 'other') if isinstance(q, dict) else 'other'
+            type_stats[q_type] = type_stats.get(q_type, 0) + 1
+
+        kb_items = kb_data.get(role, [])
+        kb_items = kb_items if isinstance(kb_items, list) else []
+        kb_titles = []
+        for item in kb_items:
+            if not isinstance(item, dict):
+                continue
+            title = str(item.get('title') or '').strip()
+            if title:
+                kb_titles.append(title)
+            if len(kb_titles) >= 5:
+                break
+
+        overview[role] = {
+            'role': role,
+            'definition': q_role.get('definition', '') if isinstance(q_role, dict) else '',
+            'question_count': len(q_items),
+            'question_types': type_stats,
+            'knowledge_count': len(kb_items),
+            'knowledge_titles': kb_titles,
+        }
+
+    return overview
+
+
 @app.route('/')
 def index():
     return send_from_directory(str(BASE_DIR / 'static'), 'index_v3.html')
@@ -21,14 +69,28 @@ def growth_page():
 
 @app.route('/api/positions', methods=['GET'])
 def positions():
-    import json
-    kb_path = BASE_DIR / 'knowledge_base.json'
     try:
-        with open(kb_path, 'r', encoding='utf-8') as f:
-            kb = json.load(f)
-        return jsonify({"positions": list(kb.keys())})
+        overview = build_position_overview()
+        return jsonify({"positions": list(overview.keys()), "overview": overview})
     except Exception as e:
         return jsonify({"error": str(e)}), 500
+
+
+@app.route('/api/position_overview', methods=['GET'])
+def position_overview():
+    """获取岗位画像，支持通过 role 查询单个岗位。"""
+    role = (request.args.get('role') or '').strip()
+    try:
+        overview = build_position_overview()
+        if role:
+            if role not in overview:
+                return jsonify({"error": f"unknown role: {role}"}), 404
+            return jsonify(overview[role])
+        return jsonify({"positions": overview})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
 @app.route('/api/candidates', methods=['GET'])
 def candidates():
     try:

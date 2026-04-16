@@ -66,7 +66,7 @@
         </select>
         <select v-model="role" class="rounded-xl border border-white/10 bg-slate-900/50 px-4 py-3 text-sm text-slate-200 outline-none transition-all focus:border-cyanx/60 focus:ring-2 focus:ring-cyanx/20 focus:bg-slate-900/80">
           <option value="">-- 所有岗位 --</option>
-          <option v-for="r in roles" :key="r" :value="r">{{ r }}</option>
+          <option v-for="r in roles" :key="r" :value="r">{{ positionLabel(r) }}</option>
         </select>
         <button @click="queryGrowthCurve" :disabled="loading" class="group rounded-xl bg-gradient-to-r from-cyan-500 to-cyanx px-6 py-3 text-sm font-bold text-slate-950 shadow-innerGlow transition-all hover:-translate-y-0.5 hover:shadow-cyanx/30 hover:shadow-lg disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:translate-y-0">
           <span v-if="!loading" class="flex items-center justify-center"><i class="ph-bold ph-magnifying-glass mr-1.5 text-lg"></i>生成报表</span>
@@ -125,6 +125,20 @@
   <script>
     const { createApp, markRaw } = Vue;
 
+    const POSITION_LABELS = {
+      Python_Algorithm_Engineer: 'Python 算法工程师',
+      Java_Backend_Engineer: 'Java 后端工程师',
+      Web_Frontend_Engineer: 'Web 前端工程师',
+      'C++_Backend_Engineer': 'C++ 后端工程师',
+      Data_Analyst: '数据分析师',
+      DevOps_Engineer: 'DevOps 工程师',
+      AI_Hardware_Product_Manager: 'AI 硬件产品经理',
+      Automotive_Simulation_Engineer: '汽车仿真工程师',
+      Embedded_Software_Engineer: '嵌入式软件工程师',
+      Hardware_Testing_Engineer: '硬件测试工程师',
+      Video_Editor_and_FX_Artist: '视频剪辑与特效师'
+    };
+
     // 全局 Chart.js 配置项
     Chart.defaults.color = '#94a3b8';
     Chart.defaults.font.family = "'Outfit', 'Noto Sans SC', sans-serif";
@@ -170,6 +184,9 @@
         }
       },
       methods: {
+        positionLabel(role) {
+          return POSITION_LABELS[role] || String(role || '').replaceAll('_', ' ');
+        },
         async loadOptions() {
           try {
             const [candRes, posRes] = await Promise.all([

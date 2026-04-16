@@ -89,6 +89,33 @@
                 <option v-for="p in positions" :key="p" :value="p">{{ positionLabel(p) }}</option>
               </select>
             </label>
+            <div class="rounded-xl border border-cyanx/20 bg-cyanx/5 p-3.5">
+              <div class="mb-2 flex items-center justify-between">
+                <span class="text-xs font-semibold uppercase tracking-wider text-cyan-300">岗位画像</span>
+                <span v-if="currentRoleMeta" class="rounded-full border border-cyanx/30 bg-cyanx/10 px-2 py-0.5 text-[11px] font-bold text-cyan-100">{{ positionLabel(role) }}</span>
+              </div>
+              <div v-if="currentRoleMeta" class="space-y-2.5 text-xs">
+                <p v-if="currentRoleMeta.definition" class="leading-relaxed text-slate-300">{{ currentRoleMeta.definition }}</p>
+                <div class="flex flex-wrap gap-1.5">
+                  <span class="rounded-full border border-white/10 bg-white/5 px-2 py-0.5 text-slate-200">题目 {{ currentRoleMeta.question_count || 0 }}</span>
+                  <span class="rounded-full border border-white/10 bg-white/5 px-2 py-0.5 text-slate-200">知识 {{ currentRoleMeta.knowledge_count || 0 }}</span>
+                </div>
+                <div v-if="Object.keys(currentRoleMeta.question_types || {}).length" class="flex flex-wrap gap-1.5">
+                  <span
+                    v-for="(count, type) in currentRoleMeta.question_types"
+                    :key="type"
+                    class="rounded-md border border-white/10 bg-slate-900/40 px-2 py-0.5 text-slate-300"
+                  >{{ questionTypeLabel(type) }} {{ count }}</span>
+                </div>
+                <div v-if="(currentRoleMeta.knowledge_titles || []).length" class="space-y-1">
+                  <div class="text-[11px] font-semibold text-slate-400">知识库重点</div>
+                  <div class="space-y-1">
+                    <p v-for="title in currentRoleMeta.knowledge_titles" :key="title" class="truncate text-slate-300">- {{ title }}</p>
+                  </div>
+                </div>
+              </div>
+              <p v-else class="text-xs text-slate-400">当前岗位暂无题库或知识库画像。</p>
+            </div>
             <label class="block space-y-1.5">
               <span class="block text-xs font-semibold uppercase tracking-wider text-slate-400">候选人姓名</span>
               <input v-model="candidateName" type="text" autocomplete="off" class="w-full rounded-xl border border-white/10 bg-slate-900/50 px-3.5 py-2.5 text-sm text-slate-200 placeholder-slate-500 outline-none transition-all focus:border-cyanx/60 focus:ring-2 focus:ring-cyanx/20 focus:bg-slate-900/80" placeholder="请输入姓名" />
@@ -214,22 +241,30 @@
             </div>
           </div>
 
-          <div v-if="evaluationDetail && !reportData" class="space-y-3.5 mt-4">
-            <div v-if="evaluationDetail.strengths" class="group rounded-2xl border border-emerald-500/20 bg-emerald-500/5 p-4.5 transition-colors hover:bg-emerald-500/10">
-              <div class="mb-1.5 flex items-center text-sm font-bold text-emerald-400"><i class="ph-fill ph-check-circle mr-1.5 text-lg"></i>亮点优势</div>
-              <div class="text-sm leading-relaxed text-slate-300">{{ evaluationDetail.strengths }}</div>
+          <div v-if="evaluationDetail && !reportData" class="space-y-4 mt-4">
+            <div v-if="evaluationDetail.strengths" class="w-full rounded-2xl border border-emerald-500/20 bg-emerald-500/5 p-5 hover:bg-emerald-500/10 transition-colors">
+              <div class="mb-3.5 flex items-center border-b border-emerald-500/20 pb-2.5 text-sm font-bold text-emerald-400"><i class="ph-fill ph-trend-up mr-2 text-lg"></i>核心优势</div>
+              <ul class="space-y-2 text-sm text-slate-300">
+                <li class="flex items-start"><span class="mr-2 mt-0.5 text-emerald-500">•</span><span class="leading-relaxed whitespace-pre-wrap">{{ evaluationDetail.strengths }}</span></li>
+              </ul>
             </div>
-            <div v-if="evaluationDetail.weaknesses" class="group rounded-2xl border border-rose-500/20 bg-rose-500/5 p-4.5 transition-colors hover:bg-rose-500/10">
-              <div class="mb-1.5 flex items-center text-sm font-bold text-rose-400"><i class="ph-fill ph-warning-circle mr-1.5 text-lg"></i>存在不足</div>
-              <div class="text-sm leading-relaxed text-slate-300">{{ evaluationDetail.weaknesses }}</div>
+            <div v-if="evaluationDetail.weaknesses" class="w-full rounded-2xl border border-rose-500/20 bg-rose-500/5 p-5 hover:bg-rose-500/10 transition-colors">
+              <div class="mb-3.5 flex items-center border-b border-rose-500/20 pb-2.5 text-sm font-bold text-rose-400"><i class="ph-fill ph-warning mr-2 text-lg"></i>核心不足</div>
+              <ul class="space-y-2 text-sm text-slate-300">
+                <li class="flex items-start"><span class="mr-2 mt-0.5 text-rose-500">•</span><span class="leading-relaxed whitespace-pre-wrap">{{ evaluationDetail.weaknesses }}</span></li>
+              </ul>
             </div>
-            <div v-if="evaluationDetail.suggestions" class="group rounded-2xl border border-amber-500/20 bg-amber-500/5 p-4.5 transition-colors hover:bg-amber-500/10">
-              <div class="mb-1.5 flex items-center text-sm font-bold text-amber-400"><i class="ph-fill ph-lightbulb mr-1.5 text-lg"></i>改进建议</div>
-              <div class="text-sm leading-relaxed text-slate-300 whitespace-pre-wrap">{{ evaluationDetail.suggestions }}</div>
+            <div v-if="evaluationDetail.suggestions" class="w-full rounded-2xl border border-amber-500/20 bg-amber-500/5 p-5 hover:bg-amber-500/10 transition-colors">
+              <div class="mb-3.5 flex items-center border-b border-amber-500/20 pb-2.5 text-sm font-bold text-amber-400"><i class="ph-fill ph-compass mr-2 text-lg"></i>提升建议</div>
+              <ul class="space-y-2 text-sm text-slate-300">
+                <li class="flex items-start"><span class="mr-2 mt-0.5 text-amber-500">•</span><span class="leading-relaxed whitespace-pre-wrap">{{ evaluationDetail.suggestions }}</span></li>
+              </ul>
             </div>
-            <div v-if="evaluationDetail.feedback && !evaluationDetail.strengths" class="group rounded-2xl border border-cyan-500/20 bg-cyan-500/5 p-4.5 transition-colors hover:bg-cyan-500/10">
-               <div class="mb-1.5 flex items-center text-sm font-bold text-cyan-400"><i class="ph-fill ph-info mr-1.5 text-lg"></i>综合反馈</div>
-               <div class="text-sm leading-relaxed text-slate-300 whitespace-pre-wrap">{{ evaluationDetail.feedback }}</div>
+            <div v-if="evaluationDetail.feedback && !evaluationDetail.strengths" class="w-full rounded-2xl border border-cyan-500/20 bg-cyan-500/5 p-5 hover:bg-cyan-500/10 transition-colors">
+              <div class="mb-3.5 flex items-center border-b border-cyan-500/20 pb-2.5 text-sm font-bold text-cyan-400"><i class="ph-fill ph-info mr-2 text-lg"></i>综合反馈</div>
+              <ul class="space-y-2 text-sm text-slate-300">
+                <li class="flex items-start"><span class="mr-2 mt-0.5 text-cyan-400">•</span><span class="leading-relaxed whitespace-pre-wrap">{{ evaluationDetail.feedback }}</span></li>
+              </ul>
             </div>
           </div>
 
@@ -365,7 +400,12 @@
       Web_Frontend_Engineer: 'Web 前端工程师',
       'C++_Backend_Engineer': 'C++ 后端工程师',
       Data_Analyst: '数据分析师',
-      DevOps_Engineer: 'DevOps 工程师'
+      DevOps_Engineer: 'DevOps 工程师',
+      AI_Hardware_Product_Manager: 'AI 硬件产品经理',
+      Automotive_Simulation_Engineer: '汽车仿真工程师',
+      Embedded_Software_Engineer: '嵌入式软件工程师',
+      Hardware_Testing_Engineer: '硬件测试工程师',
+      Video_Editor_and_FX_Artist: '视频剪辑与特效师'
     };
 
     Chart.defaults.color = '#94a3b8';
@@ -379,7 +419,7 @@
       data() {
         return {
           sessionId: null, mediaRecorder: null, audioChunks: [], models: [], selectedModel: '', loadingModel: false,
-          positions: [], role: '', candidateName: '匿名', questionCount: 5, followupEnabled: true,
+          positions: [], positionOverview: {}, role: '', candidateName: '匿名', questionCount: 5, followupEnabled: true,
           mode: 'text', textAnswer: '',
           logs: [{ type: 'system', content: '<i class="ph-fill ph-hand-waving mr-1 text-lg text-amber-400"></i>系统已就绪，请配置参数并点击「开始面试」', isHtml: true, statusClass: 'border-white/10 bg-white/5 text-slate-300' }],
           evalVisible: false, showCharts: false, evaluationDetail: null, speechEval: null, reportData: null,
@@ -387,6 +427,10 @@
         };
       },
       computed: {
+        currentRoleMeta() {
+          if (!this.role) return null;
+          return this.positionOverview[this.role] || null;
+        },
         timerText() {
           const m = String(Math.floor(this.timerSeconds / 60)).padStart(2, '0');
           const s = String(this.timerSeconds % 60).padStart(2, '0');
@@ -413,9 +457,23 @@
       beforeUnmount() { this.stopTimer(); },
       methods: {
         positionLabel(p) { return POSITION_LABELS[p] || String(p || '').replaceAll('_', ' '); },
+        questionTypeLabel(t) {
+          const map = { technical: '技术题', scenario: '场景题', behavior: '行为题', other: '其他' };
+          return map[t] || t;
+        },
         getQAScore(item) { const detail = (item.evaluation && item.evaluation.llm_detail) ? item.evaluation.llm_detail : (item.evaluation || {}); return detail.overall || detail.score || 0; },
         getQADetail(item, field) { const detail = (item.evaluation && item.evaluation.llm_detail) ? item.evaluation.llm_detail : (item.evaluation || {}); return detail[field] || ''; },
-        async loadPositions() { try { const res = await fetch('/api/positions'); const data = await res.json(); this.positions = data.positions || []; if (!this.role && this.positions.length > 0) this.role = this.positions[0]; } catch (e) { this.addSystem('加载岗位失败：' + e, false, 'error'); } },
+        async loadPositions() {
+          try {
+            const res = await fetch('/api/positions');
+            const data = await res.json();
+            this.positions = data.positions || [];
+            this.positionOverview = data.overview || {};
+            if (!this.role && this.positions.length > 0) this.role = this.positions[0];
+          } catch (e) {
+            this.addSystem('加载岗位失败：' + e, false, 'error');
+          }
+        },
         async loadModels() { try { const res = await fetch('/api/models'); const data = await res.json(); this.models = data.models || []; this.selectedModel = data.current || (this.models[0] ? this.models[0].id : ''); } catch (e) { this.addSystem('加载模型失败：' + e, false, 'error'); } },
         async changeModel() { if (!this.selectedModel) return; this.loadingModel = true; try { const resp = await fetch('/api/set_model', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ model_id: this.selectedModel }) }); const result = await resp.json(); if (result.error) this.addSystem('模型切换失败：' + result.error, false, 'error'); else this.addSystem('<i class="ph-fill ph-check-circle mr-1 text-emerald-400"></i>' + (result.message || '模型切换成功'), true, 'success'); } catch (e) { this.addSystem('模型切换请求失败：' + e, false, 'error'); } finally { this.loadingModel = false; } },
         addSystem(content, isHtml = false, status = 'normal') {
