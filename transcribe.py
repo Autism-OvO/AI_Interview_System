@@ -76,7 +76,7 @@ def transcribe_file(filepath: str) -> str:
         # Support new and old openai SDKs
         try:
             if hasattr(openai, "OpenAI"):
-                timeout_s = float(os.getenv("OPENAI_TRANSCRIBE_TIMEOUT", "35"))
+                timeout_s = float(os.getenv("OPENAI_TRANSCRIBE_TIMEOUT", "120"))
                 client = openai.OpenAI(api_key=api_key, timeout=timeout_s)
                 # new SDK: client.audio.transcriptions.create
                 try:
