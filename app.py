@@ -313,4 +313,12 @@ def growth_curve():
 
 
 if __name__ == '__main__':
+    import logging
+
+    class _SuppressDevServerWarning(logging.Filter):
+        def filter(self, record):
+            msg = record.getMessage()
+            return 'This is a development server. Do not use it in a production deployment.' not in msg
+
+    logging.getLogger('werkzeug').addFilter(_SuppressDevServerWarning())
     app.run(host='0.0.0.0', port=5000, debug=True)
