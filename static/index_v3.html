@@ -92,9 +92,19 @@
             <div class="rounded-xl border border-cyanx/20 bg-cyanx/5 p-3.5">
               <div class="mb-2 flex items-center justify-between">
                 <span class="text-xs font-semibold uppercase tracking-wider text-cyan-300">岗位画像</span>
-                <span v-if="currentRoleMeta" class="rounded-full border border-cyanx/30 bg-cyanx/10 px-2 py-0.5 text-[11px] font-bold text-cyan-100">{{ positionLabel(role) }}</span>
+                <div class="flex items-center gap-2">
+                  <span v-if="currentRoleMeta" class="rounded-full border border-cyanx/30 bg-cyanx/10 px-2 py-0.5 text-[11px] font-bold text-cyan-100">{{ positionLabel(role) }}</span>
+                  <button
+                    @click="toggleRoleProfile"
+                    type="button"
+                    class="inline-flex h-6 w-6 items-center justify-center rounded-md border border-white/10 bg-white/5 text-slate-300 transition-all hover:bg-white/10 hover:text-cyan-200"
+                    :title="roleProfileExpanded ? '收起岗位画像' : '展开岗位画像'"
+                  >
+                    <i class="ph-bold text-sm transition-transform duration-200" :class="roleProfileExpanded ? 'ph-caret-up' : 'ph-caret-down'"></i>
+                  </button>
+                </div>
               </div>
-              <div v-if="currentRoleMeta" class="space-y-2.5 text-xs">
+              <div v-if="roleProfileExpanded && currentRoleMeta" class="space-y-2.5 text-xs">
                 <p v-if="currentRoleMeta.definition" class="leading-relaxed text-slate-300">{{ currentRoleMeta.definition }}</p>
                 <div class="flex flex-wrap gap-1.5">
                   <span class="rounded-full border border-white/10 bg-white/5 px-2 py-0.5 text-slate-200">题目 {{ currentRoleMeta.question_count || 0 }}</span>
@@ -114,7 +124,7 @@
                   </div>
                 </div>
               </div>
-              <p v-else class="text-xs text-slate-400">当前岗位暂无题库或知识库画像。</p>
+              <p v-else-if="roleProfileExpanded" class="text-xs text-slate-400">当前岗位暂无题库或知识库画像。</p>
             </div>
             <label class="block space-y-1.5">
               <span class="block text-xs font-semibold uppercase tracking-wider text-slate-400">候选人姓名</span>
@@ -420,6 +430,7 @@
         return {
           sessionId: null, mediaRecorder: null, audioChunks: [], models: [], selectedModel: '', loadingModel: false,
           positions: [], positionOverview: {}, role: '', candidateName: '匿名', questionCount: 5, followupEnabled: true,
+          roleProfileExpanded: true,
           mode: 'text', textAnswer: '',
           logs: [{ type: 'system', content: '<i class="ph-fill ph-hand-waving mr-1 text-lg text-amber-400"></i>系统已就绪，请配置参数并点击「开始面试」', isHtml: true, statusClass: 'border-white/10 bg-white/5 text-slate-300' }],
           evalVisible: false, showCharts: false, evaluationDetail: null, speechEval: null, reportData: null,
@@ -456,6 +467,7 @@
       mounted() { this.loadPositions(); this.loadModels(); },
       beforeUnmount() { this.stopTimer(); },
       methods: {
+        toggleRoleProfile() { this.roleProfileExpanded = !this.roleProfileExpanded; },
         positionLabel(p) { return POSITION_LABELS[p] || String(p || '').replaceAll('_', ' '); },
         questionTypeLabel(t) {
           const map = { technical: '技术题', scenario: '场景题', behavior: '行为题', other: '其他' };
